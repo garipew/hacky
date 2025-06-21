@@ -16,7 +16,7 @@ int main(int argc, char** argv){
 		name_len = strlen(argv[0]);
 	}
 	int distance = name_len - strlen(argv[1]);
-	printf("on %s, %s is at %p\n", argv[1], argv[2],
+	printf("on %s, %s is at %8p\n", argv[1], argv[2],
 		 	getenv(argv[2]) + (2*distance));
 	return 0;
 }

@@ -9,3 +9,6 @@ executables in a predictable way.
 sockets.
 
 - [shellcode](shellcode/): A collection of shellcodes
+
+- [printable_helper](printable_helper/): A program to help transcribing
+shellcode to printable bytes. 

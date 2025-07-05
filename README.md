@@ -1,14 +1,9 @@
-# hacking
-This repo contains my implementations of some of the examples given in the book 
-"Hacking: The art of exploitation" by Jon Erickson.
+# hacky
+A collection of hacky stuff...
 
-- [getenvaddr](getenvaddr/): A program to get the addresses of env variables of
-executables in a predictable way.
+From a practice playground to (adapted) implementations of code from the books 
+I read. 
 
-- [raw_tcpsniff](raw_tcpsniff/): A basic tcp sniffer implementation using raw
-sockets.
-
-- [shellcode](shellcode/): A collection of shellcodes
-
-- [printable_helper](printable_helper/): A program to help transcribing
-shellcode to printable bytes. 
+- [Hacking: The Art of Exploitation](art/)
+- [Practical Binary Analysis](pba/)
+- [Playground](stool/)

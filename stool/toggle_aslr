@@ -1,0 +1,11 @@
+#!/usr/bin/env	bash
+
+current=$(cat /proc/sys/kernel/randomize_va_space)
+
+if [[ $current == "0" ]]; then
+	echo 2 > /proc/sys/kernel/randomize_va_space 
+	echo activating...
+else
+	echo 0 > /proc/sys/kernel/randomize_va_space
+	echo deactivating...
+fi 

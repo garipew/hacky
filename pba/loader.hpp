@@ -5,6 +5,10 @@
 #include <vector>
 #include <string>
 
+class Binary;
+class Section;
+class Symbol;
+
 class Symbol{
 	public:
 		enum SymbolType{

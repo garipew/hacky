@@ -74,8 +74,9 @@ class Binary{
 	std::string arch_str;
 	unsigned bits;
 
-	int load_binary(std::string &fname, Binary* bin, Binary::BinaryType type);
-	void unload_binary(Binary* bin);
 };
+
+int load_binary(std::string&, Binary*, Binary::BinaryType);
+void unload_binary(Binary*);
 
 #endif

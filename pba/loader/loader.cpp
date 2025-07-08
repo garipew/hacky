@@ -1,21 +1,9 @@
 #include <bfd.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <string>
 #include <stdio.h>
 #include "loader.hpp"
-
-int load_binary(std::string &fname, Binary* bin, Binary::BinaryType type){
-	return load_binary_bfd(fname, bin, type);
-}
-
-void unload_binary(Binary* bin){
-	Section *sec;
-	for(int i = 0; i < bin->sections.size(); i++){
-		sec = bin->sections[i];
-		if(sec->bytes){
-			free(sec->bytes);
-		}
-	}
-}
 
 static bfd* open_bfd(std::string &filename){
 	static int bfd_inited = 0;
@@ -45,6 +33,153 @@ static bfd* open_bfd(std::string &filename){
 	}
 	
 	return bin_handler;
+}
+
+static int load_symbols_bfd(bfd* bin_handler, Binary* bin){
+	int ret;
+	long table_size, symbols, i;
+
+	asymbol **bin_symtable = NULL;
+	Symbol *sym;
+
+	table_size = bfd_get_symtab_upper_bound(bin_handler);
+	if(table_size < 0){
+		fprintf(stderr, "failed to read symbol table (%s)\n",
+			       	bfd_errmsg(bfd_get_error()));
+		goto fail;
+	}else if(table_size > 0){
+		bin_symtable = (asymbol**)malloc(table_size);
+		if(!bin_symtable){
+			fprintf(stderr, "malloc fail\n");
+			goto fail;
+		}
+
+		symbols = bfd_canonicalize_symtab(bin_handler, bin_symtable);
+		if(symbols < 0){
+			fprintf(stderr, "failed to read symbol table (%s)\n",
+					bfd_errmsg(bfd_get_error()));
+			goto fail;
+		}
+
+		for(int i = 0; i < symbols; i++){
+			if(bin_symtable[i]->flags & BSF_FUNCTION){
+				bin->symbols.push_back(Symbol());
+				sym = &bin->symbols.back();
+				sym->type = Symbol::SYM_TYPE_FUNC;
+				sym->name = std::string(bin_symtable[i]->name);
+				sym->addr = bfd_asymbol_value(bin_symtable[i]);
+			}
+		}
+	}
+	ret = 0;
+	goto cleanup;
+
+	fail:
+	ret = -1;
+
+	cleanup:
+	if(bin_symtable){
+		free(bin_symtable);
+	}
+	return ret;
+}
+
+static int load_dynamic_bfd(bfd* bin_handler, Binary* bin){
+	int ret;
+	long table_size, symbols, i;
+
+	asymbol **bin_symtable = NULL;
+	Symbol *sym;
+
+	table_size = bfd_get_dynamic_symtab_upper_bound(bin_handler);
+	if(table_size < 0){
+		fprintf(stderr, "failed to read symbol table (%s)\n",
+			       	bfd_errmsg(bfd_get_error()));
+		goto fail;
+	}else if(table_size > 0){
+		bin_symtable = (asymbol**)malloc(table_size);
+		if(!bin_symtable){
+			fprintf(stderr, "malloc fail\n");
+			goto fail;
+		}
+
+		symbols = bfd_canonicalize_dynamic_symtab(bin_handler, bin_symtable);
+		if(symbols < 0){
+			fprintf(stderr, "failed to read symbol table (%s)\n",
+					bfd_errmsg(bfd_get_error()));
+			goto fail;
+		}
+
+		for(int i = 0; i < symbols; i++){
+			if(bin_symtable[i]->flags & BSF_FUNCTION){
+				bin->symbols.push_back(Symbol());
+				sym = &bin->symbols.back();
+				sym->type = Symbol::SYM_TYPE_FUNC;
+				sym->name = std::string(bin_symtable[i]->name);
+				sym->addr = bfd_asymbol_value(bin_symtable[i]);
+			}
+		}
+	}
+	ret = 0;
+	goto cleanup;
+
+	fail:
+	ret = -1;
+
+	cleanup:
+	if(bin_symtable){
+		free(bin_symtable);
+	}
+	return ret;
+}
+
+static int load_sections_bfd(bfd* bin_handler, Binary* bin){
+	int bin_flags;
+	uint64_t vma, size;
+	const char* secname;
+	asection* bin_sec;
+	Section* sec;
+	Section::SectionType sectype;
+
+	for(bin_sec = bin_handler->sections; bin_sec; bin_sec = bin_sec->next){
+		bin_flags = bfd_section_flags(bin_sec);
+
+		sectype = Section::SEC_TYPE_NONE;
+		if(bin_flags & SEC_CODE){
+			sectype = Section::SEC_TYPE_CODE;
+		}else if(bin_flags & SEC_DATA){
+			sectype = Section::SEC_TYPE_DATA;
+		}else{
+			continue;
+		}
+		vma = bfd_section_vma(bin_sec);
+		size = bfd_section_size(bin_sec);
+		secname = bfd_section_name(bin_sec);
+		if(!secname){
+			secname = "<unnamed>";
+		}
+
+		bin->sections.push_back(Section());
+		sec = &bin->sections.back();
+
+		sec->binary = bin;
+		sec->name = secname;
+		sec->type = sectype;
+		sec->vma = vma;
+		sec->size = size;
+		sec->bytes = (uint8_t*)malloc(size);
+		if(!sec->bytes){
+			fprintf(stderr, "malloc fail\n");
+			return -1;
+		}
+
+		if(!bfd_get_section_contents(bin_handler, bin_sec, sec->bytes, 0, size)){
+			fprintf(stderr, "failed to read section '%s' (%s)\n",
+				       	sec->name, bfd_errmsg(bfd_get_error()));
+			return -1;
+		}
+	}
+	return 0;
 }
 
 static int load_binary_bfd(std::string &filename, Binary* bin, Binary::BinaryType type){
@@ -107,149 +242,17 @@ static int load_binary_bfd(std::string &filename, Binary* bin, Binary::BinaryTyp
 	return ret;
 }
 
-static int load_symbols_bfd(bfd* bin_handler, Binary* bin){
-	int ret;
-	long table_size, symbols, i;
-
-	asymbol **bin_symtable = NULL;
-	Symbol *sym;
-
-	table_size = bfd_get_symtab_upper_bound(bin_handler);
-	if(table_size < 0){
-		fprintf(stderr, "failed to read symbol table (%s)\n",
-			       	bfd_errmsg(bfd_get_error()));
-		goto fail;
-	}else if(table_size > 0){
-		bin_symtable = malloc(table_size);
-		if(!bin_symtable){
-			fprintf(stderr, "malloc fail\n");
-			goto fail;
-		}
-
-		symbols = bfd_canonicalize_symtab(bin_handler, bin_symtable);
-		if(symbols < 0){
-			fprintf(stderr, "failed to read symbol table (%s)\n",
-					bfd_errmsg(bfd_get_error()));
-			goto fail;
-		}
-
-		for(int i = 0; i < symbols; i++){
-			if(bin_symtab[i]->flags & BSF_FUNCTION){
-				bin->symbols.push_back(Symbol());
-				sym = &bin->symbols.back();
-				sym->type = Symbol::SYM_TYPE_FUNC;
-				sym->name = std::string(bin_symtable[i]->name);
-				sym->addr = bfd_asymbol_value(bin_symtable[i]);
-			}
-		}
-	}
-	ret = 0;
-	goto cleanup;
-
-	fail:
-	ret = -1;
-
-	cleanup:
-	if(bin_symtable){
-		free(bin_symtable);
-	}
-	return ret;
+int load_binary(std::string &fname, Binary* bin, Binary::BinaryType type){
+	return load_binary_bfd(fname, bin, type);
 }
 
-static int load_dynamic_bfd(bfd* bin_handler, Binary* bin){
-	int ret;
-	long table_size, symbols, i;
-
-	asymbol **bin_symtable = NULL;
-	Symbol *sym;
-
-	table_size = bfd_get_dynamic_symtab_upper_bound(bin_handler);
-	if(table_size < 0){
-		fprintf(stderr, "failed to read symbol table (%s)\n",
-			       	bfd_errmsg(bfd_get_error()));
-		goto fail;
-	}else if(table_size > 0){
-		bin_symtable = malloc(table_size);
-		if(!bin_symtable){
-			fprintf(stderr, "malloc fail\n");
-			goto fail;
-		}
-
-		symbols = bfd_canonicalize_dynamic_symtab(bin_handler, bin_symtable);
-		if(symbols < 0){
-			fprintf(stderr, "failed to read symbol table (%s)\n",
-					bfd_errmsg(bfd_get_error()));
-			goto fail;
-		}
-
-		for(int i = 0; i < symbols; i++){
-			if(bin_symtab[i]->flags & BSF_FUNCTION){
-				bin->symbols.push_back(Symbol());
-				sym = &bin->symbols.back();
-				sym->type = Symbol::SYM_TYPE_FUNC;
-				sym->name = std::string(bin_symtable[i]->name);
-				sym->addr = bfd_asymbol_value(bin_symtable[i]);
-			}
+void unload_binary(Binary* bin){
+	Section *sec;
+	for(int i = 0; i < bin->sections.size(); i++){
+		sec = &bin->sections[i];
+		if(sec->bytes){
+			free(sec->bytes);
 		}
 	}
-	ret = 0;
-	goto cleanup;
-
-	fail:
-	ret = -1;
-
-	cleanup:
-	if(bin_symtable){
-		free(bin_symtable);
-	}
-	return ret;
 }
 
-static int load_sections(bfd* bin_handler, Binary* bin){
-	int bin_flags;
-	uint64_t vma, size;
-	const char* secname;
-	asection* bin_sec;
-	Section* sec;
-	Section::SectionType sectype;
-
-	for(bin_sec = bin_handler->sections; bin_sec; bin_sec = bin_sec->next){
-		bin_flags = bfd_get_section_flags(bin_handler, bin_sec);
-
-		sectype = Section::SEC_TYPE_NONE;
-		if(bin_flags & SEC_CODE){
-			sectype = Section::SEC_TYPE_CODE;
-		}else if(bin_flags & SEC_DATA){
-			sectype = Section::SEC_TYPE_DATA;
-		}else{
-			continue;
-		}
-		vma = bfd_section_vma(bin_handler, bin_sec);
-		size = bfd_section_size(bin_handler, bin_sec);
-		secname = bfd_section_name(bin_handler, bin_sec);
-		if(!secname){
-			secname = "<unnamed>";
-		}
-
-		bin->sections.push_back(Section());
-		sec = &bin->sections.back();
-
-		sec->binary = bin;
-		sec->name = secname;
-		sec->type = sectype;
-		sec->vma = vma;
-		sec->size = size;
-		sec->bytes = malloc(size);
-		if(!sec->bytes){
-			fprintf(stderr, "malloc fail\n");
-			return -1;
-		}
-
-		if(!bfd_get_section_contents(bin_handler, bin_sec, sec->bytes, 0, size)){
-			fprintf(stderr, "failed to read section '%s' (%s)\n",
-				       	sec->name, bfd_errmsg(bfd_get_error()));
-			return -1;
-		}
-	}
-	return 0;
-}

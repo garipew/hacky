@@ -37,6 +37,7 @@ static bfd* open_bfd(std::string &filename){
 
 static int load_symbols_bfd(bfd* bin_handler, Binary* bin){
 	int ret;
+	int j;
 	long table_size, symbols, i;
 
 	asymbol **bin_symtable = NULL;
@@ -60,8 +61,27 @@ static int load_symbols_bfd(bfd* bin_handler, Binary* bin){
 					bfd_errmsg(bfd_get_error()));
 			goto fail;
 		}
-
+		
 		for(int i = 0; i < symbols; i++){
+			if(!(bin_symtable[i]->flags & BSF_WEAK)){
+				/* should try to rewrite */
+				for(j = 0; j < bin->symbols.size(); j++){
+					sym = &bin->symbols[j];
+					if(sym->name == bin_symtable[i]->name){
+						printf("try to rewrite '%d' with '%d'\n", i, j);
+						break;
+					}
+				}
+				if(j != i){
+					if(bin_symtable[j]->flags & BSF_FUNCTION){
+						sym->name = std::string(bin_symtable[j]->name);
+						sym->addr = bfd_asymbol_value(bin_symtable[j]);
+						sym->type = Symbol::SYM_TYPE_FUNC;
+					}
+					continue;
+				}
+			}
+			/* write a symbol to the end of symbols vector */
 			if(bin_symtable[i]->flags & BSF_FUNCTION){
 				bin->symbols.push_back(Symbol());
 				sym = &bin->symbols.back();

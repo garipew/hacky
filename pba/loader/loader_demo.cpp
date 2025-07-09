@@ -5,13 +5,13 @@
 
 int main(int argc, char** argv){
 	if(argc < 2){
-		printf("Usage: %s <filename>\n", argv[0]);
+		printf("Usage: %s <filename> <section_name>\n", argv[0]);
 		return 1;
 	}
 
 	size_t i;
 	Binary bin;
-	Section *sec;
+	Section *sec, *dump = NULL;
 	Symbol *sym;
 	std::string filename;
 
@@ -26,6 +26,9 @@ int main(int argc, char** argv){
 
 	for(i = 0; i < bin.sections.size(); i++){
 		sec = &bin.sections[i];
+		if(argc > 2 && sec->name == argv[2]){
+			dump = sec;
+		}
 		printf("0x%016jx %-8ju %-20s %s\n",
 				sec->vma, sec->size, sec->name.c_str(),
 				sec->type == Section::SEC_TYPE_CODE ? "CODE" : "DATA");
@@ -39,6 +42,15 @@ int main(int argc, char** argv){
 				sym->name.c_str(), sym->addr,
 				(sym->type & Symbol::SYM_TYPE_FUNC) ? "FUNC" : "");
 		}
+	}
+	if(dump){
+		printf("Dump of section '%s'\n", dump->name.c_str());
+		for(int i = 0; i < dump->size; i++){
+			printf("%02x ", dump->bytes[i]);
+			if((i != 0 && i % 16 == 0) || i == dump->size - 1){
+				printf("\n");
+			}
+		}	
 	}
 	unload_binary(&bin);
 	return 0;

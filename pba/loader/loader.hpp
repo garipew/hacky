@@ -19,6 +19,7 @@ class Symbol{
 	SymbolType type;
 	std::string name;
 	uint64_t addr;
+	bool is_weak;
 };
 
 class Section{

@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string>
 #include <stdio.h>
+#include <algorithm>
 #include "loader.hpp"
 
 static bfd* open_bfd(std::string &filename){
@@ -35,9 +36,34 @@ static bfd* open_bfd(std::string &filename){
 	return bin_handler;
 }
 
+static int filter_symbols(Binary* bin){
+	/* find weak symbols, for each, check if there is a non-weak symbol with
+	 * the same name, if so, remove the weak
+	 * return amount of overwritten symbols.
+	 */
+	int count = bin->symbols.size();
+	std::vector<Symbol> notweak;
+	for(int i = 0; i < count; i++){
+		if(!bin->symbols[i].is_weak){
+			notweak.push_back(bin->symbols[i]);
+		}
+	}
+	bin->symbols.erase(std::remove_if(bin->symbols.begin(), bin->symbols.end(),
+				[notweak](Symbol s){
+					if(s.is_weak){
+						for(int i = 0; i < notweak.size(); i++){
+							if(s.name == notweak[i].name){
+								return true;
+							}
+						}
+					}
+					return false;
+				}), bin->symbols.end());
+	return count - bin->symbols.size();
+}
+
 static int load_symbols_bfd(bfd* bin_handler, Binary* bin){
 	int ret;
-	int j;
 	long table_size, symbols, i;
 
 	asymbol **bin_symtable = NULL;
@@ -63,33 +89,17 @@ static int load_symbols_bfd(bfd* bin_handler, Binary* bin){
 		}
 		
 		for(int i = 0; i < symbols; i++){
-			if(!(bin_symtable[i]->flags & BSF_WEAK)){
-				/* should try to rewrite */
-				for(j = 0; j < bin->symbols.size(); j++){
-					sym = &bin->symbols[j];
-					if(sym->name == bin_symtable[i]->name){
-						printf("try to rewrite '%d' with '%d'\n", i, j);
-						break;
-					}
-				}
-				if(j != i){
-					if(bin_symtable[j]->flags & BSF_FUNCTION){
-						sym->name = std::string(bin_symtable[j]->name);
-						sym->addr = bfd_asymbol_value(bin_symtable[j]);
-						sym->type = Symbol::SYM_TYPE_FUNC;
-					}
-					continue;
-				}
-			}
-			/* write a symbol to the end of symbols vector */
 			if(bin_symtable[i]->flags & BSF_FUNCTION){
+				/* Write everything, then filter overwritten */
 				bin->symbols.push_back(Symbol());
 				sym = &bin->symbols.back();
 				sym->type = Symbol::SYM_TYPE_FUNC;
 				sym->name = std::string(bin_symtable[i]->name);
 				sym->addr = bfd_asymbol_value(bin_symtable[i]);
+				sym->is_weak = bin_symtable[i]->flags & BSF_WEAK;
 			}
 		}
+		filter_symbols(bin);
 	}
 	ret = 0;
 	goto cleanup;

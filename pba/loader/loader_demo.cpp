@@ -38,9 +38,13 @@ int main(int argc, char** argv){
 		printf("scanned symbol tables\n");
 		for(i = 0; i < bin.symbols.size(); i++){
 			sym = &bin.symbols[i];
-			printf("%-40s 0x%016jx %s\n",
-				sym->name.c_str(), sym->addr,
-				(sym->type & Symbol::SYM_TYPE_FUNC) ? "FUNC" : "");
+			printf("%-40s 0x%016jx ",
+				sym->name.c_str(), sym->addr);
+				if(sym->type & Symbol::SYM_TYPE_FUNC){
+					printf("FUNC\n");
+				}else if(sym->type & Symbol::SYM_TYPE_DATA){
+					printf("DATA\n");
+				}
 		}
 	}
 	if(dump){

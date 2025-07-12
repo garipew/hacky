@@ -97,6 +97,13 @@ static int load_symbols_bfd(bfd* bin_handler, Binary* bin){
 				sym->name = std::string(bin_symtable[i]->name);
 				sym->addr = bfd_asymbol_value(bin_symtable[i]);
 				sym->is_weak = bin_symtable[i]->flags & BSF_WEAK;
+			}else if(bin_symtable[i]->flags & BSF_OBJECT){
+				bin->symbols.push_back(Symbol());
+				sym = &bin->symbols.back();
+				sym->type = Symbol::SYM_TYPE_DATA;
+				sym->name = std::string(bin_symtable[i]->name);
+				sym->addr = bfd_asymbol_value(bin_symtable[i]);
+				sym->is_weak = bin_symtable[i]->flags & BSF_WEAK;
 			}
 		}
 		filter_symbols(bin);

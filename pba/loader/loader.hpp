@@ -16,11 +16,11 @@ class Symbol{
 			SYM_TYPE_FUNC = 1,
 			SYM_TYPE_DATA = 2
 		};
-	Symbol() : type(SYM_TYPE_UKN), name(), addr(0) {}
-	SymbolType type;
-	std::string name;
-	uint64_t addr;
-	bool is_weak;
+		Symbol() : type(SYM_TYPE_UKN), name(), addr(0) {}
+		SymbolType type;
+		std::string name;
+		uint64_t addr;
+		bool is_weak;
 };
 
 class Section{
@@ -30,17 +30,17 @@ class Section{
 			SEC_TYPE_CODE = 1,
 			SEC_TYPE_DATA = 2
 		};
-	Section() : binary(NULL), type(SEC_TYPE_NONE), vma(0), size(0), 
-	bytes(NULL) {}
+		Section() : binary(NULL), type(SEC_TYPE_NONE), vma(0), size(0), 
+		bytes(NULL) {}
 
-	bool contains(uint64_t addr){ return (vma <= addr) && (addr < vma + size); }
+		bool contains(uint64_t addr){ return (vma <= addr) && (addr < vma + size); }
 
-	Binary *binary;
-	std::string name;
-	SectionType type;
-	uint64_t vma;
-	uint64_t size;
-	uint8_t *bytes;
+		Binary *binary;
+		std::string name;
+		SectionType type;
+		uint64_t vma;
+		uint64_t size;
+		uint8_t *bytes;
 };
 
 class Binary{
@@ -54,28 +54,27 @@ class Binary{
 			ARCH_NONE = 0,
 			ARCH_X86 = 1
 		};
-	Binary() : type(BIN_TYPE_AUTO), arch(ARCH_NONE), entrypoint(0),
-       	bits(0) {}
-	
-	Section* get_text_section(){
-		for(auto &s : sections){
-			if(s.name == ".text"){
-				return &s;
+		Binary() : type(BIN_TYPE_AUTO), arch(ARCH_NONE), entrypoint(0),
+		bits(0) {}
+
+		Section* get_text_section(){
+			for(auto &s : sections){
+				if(s.name == ".text"){
+					return &s;
+				}
 			}
+			return NULL;
 		}
-		return NULL;
-	}
 
-	std::string filename;
-	std::vector<Section> sections;
-	std::vector<Symbol> symbols;
-	uint64_t entrypoint;
-	BinaryType type;
-	std::string type_str;
-	BinaryArch arch;
-	std::string arch_str;
-	unsigned bits;
-
+		std::string filename;
+		std::vector<Section> sections;
+		std::vector<Symbol> symbols;
+		uint64_t entrypoint;
+		BinaryType type;
+		std::string type_str;
+		BinaryArch arch;
+		std::string arch_str;
+		unsigned bits;
 };
 
 int load_binary(std::string&, Binary*, Binary::BinaryType);
